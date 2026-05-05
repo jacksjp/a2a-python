@@ -112,83 +112,18 @@ fi
 echo "ITK Service is up! Sending compatibility test request..."
 RESPONSE=$(curl -s -X POST http://127.0.0.1:8000/run \
   -H "Content-Type: application/json" \
-  -d '{
-    "tests": [
-      {
-        "name": "Star Topology (Full) - JSONRPC & GRPC",
-        "sdks": ["current", "python_v10", "python_v03", "go_v10", "go_v03"],
-        "traversal": "euler",
-        "edges": ["0->1", "0->2", "0->3", "0->4", "1->0", "2->0", "3->0", "4->0"],
-        "protocols": ["jsonrpc", "grpc"],
-        "behavior": "send_message"
-      },
-      {
-        "name": "Star Topology (No Go v03) - HTTP_JSON",
-        "sdks": ["current", "python_v10", "python_v03", "go_v10"],
-        "traversal": "euler",
-        "edges": ["0->1", "0->2", "0->3", "1->0", "2->0", "3->0"],
-        "protocols": ["http_json"],
-        "behavior": "send_message"
-      },
-      {
-        "name": "Star Topology (Full) - JSONRPC & GRPC (Streaming)",
-        "sdks": ["current", "python_v10", "python_v03", "go_v10", "go_v03"],
-        "traversal": "euler",
-        "edges": ["0->1", "0->2", "0->3", "0->4", "1->0", "2->0", "3->0", "4->0"],
-        "protocols": ["jsonrpc", "grpc"],
-        "streaming": true,
-        "behavior": "send_message"
-      },
-      {
-        "name": "Star Topology (No Go v03) - HTTP_JSON (Streaming)",
-        "sdks": ["current", "python_v10", "python_v03", "go_v10"],
-        "traversal": "euler",
-        "edges": ["0->1", "0->2", "0->3", "1->0", "2->0", "3->0"],
-        "protocols": ["http_json"],
-        "streaming": true,
-        "behavior": "send_message"
-      },
-      {
-        "name": "Push Notification Test - JSONRPC & GRPC",
-        "sdks": ["current", "python_v10", "python_v03", "go_v03"],
-        "traversal": "euler",
-        "edges": ["0->1", "0->2", "0->3", "1->0", "2->0", "3->0"],
-        "protocols": ["jsonrpc", "grpc"],
-        "behavior": "push_notification"
-      },
-      {
-        "name": "Push Notification Test - HTTP_JSON",
-        "sdks": ["current", "python_v10", "python_v03"],
-        "traversal": "euler",
-        "edges": ["0->1", "0->2", "1->0", "2->0"],
-        "protocols": ["http_json"],
-        "behavior": "push_notification"
-      },
-      {
-        "name": "Resubscribe Test - JSONRPC",
-        "sdks": ["current", "python_v10", "python_v03", "go_v10", "go_v03"],
-        "traversal": "euler",
-        "edges": ["0->1", "0->2", "0->3", "0->4", "1->0", "2->0", "3->0", "4->0"],
-        "protocols": ["jsonrpc"],
-        "streaming": true,
-        "behavior": "resubscribe"
-      },
-      {
-        "name": "Resubscribe Test - Python & Go Non-JSONRPC Protocols",
-        "sdks": ["current", "python_v10", "python_v03", "go_v10"],
-        "traversal": "euler",
-        "edges": ["0->1", "0->2", "0->3", "1->0", "2->0", "3->0"],
-        "protocols": ["grpc", "http_json"],
-        "streaming": true,
-        "behavior": "resubscribe"
-      }
-    ]
-  }')
+  -d @scenarios.json)
 
-echo "--------------------------------------------------------"
-echo "ITK TEST RESULTS:"
-echo "--------------------------------------------------------"
-echo "$RESPONSE" | python3 -c "
+if [ "${ITK_NIGHTLY_RUN^^}" = "TRUE" ]; then
+  echo "Nightly run detected. Saving raw results and running process_results.py..."
+  echo "$RESPONSE" > raw_results.json
+  uv run process_results.py
+  RESULT=$?
+else
+  echo "--------------------------------------------------------"
+  echo "ITK TEST RESULTS:"
+  echo "--------------------------------------------------------"
+  echo "$RESPONSE" | python3 -c "
 import sys, json
 try:
     data = json.load(sys.stdin)
@@ -206,7 +141,8 @@ except Exception as e:
     print(f'Raw response: {data if \"data\" in locals() else \"no data\"}')
     sys.exit(1)
 "
-RESULT=$?
+  RESULT=$?
+fi
 set -e
 
 if [ $RESULT -ne 0 ]; then
